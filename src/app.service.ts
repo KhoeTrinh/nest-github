@@ -17,7 +17,6 @@ export class AppService {
       },
     );
     const response = await res.json();
-    console.log(response);
     const res2 = await fetch(
       `https://api.github.com/repos/Khoa-Storage/Image-Storage/git/commits/${response.object.sha}`,
       {
@@ -88,6 +87,7 @@ export class AppService {
   }
 
   async uploadFile(req: Request, file: Express.Multer.File) {
+    // Step 1: Get the latest commit on the main branch
     const res = await fetch(
       'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/refs/heads/main',
       {
@@ -99,6 +99,8 @@ export class AppService {
       },
     );
     const response = await res.json();
+  
+    // Step 2: Get the tree associated with the latest commit
     const res2 = await fetch(
       `https://api.github.com/repos/Khoa-Storage/Image-Storage/git/commits/${response.object.sha}`,
       {
@@ -110,7 +112,26 @@ export class AppService {
       },
     );
     const response2 = await res2.json();
-    const res3 = await fetch(
+  
+    // Step 3: Create a new blob with the image file (in binary format, not base64)
+    const blobRes = await fetch(
+      'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/blobs',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: req.headers.authorization,
+        },
+        body: JSON.stringify({
+          content: file.buffer.toString('base64'),  // Convert the buffer to base64
+          encoding: 'base64',  // GitHub expects binary files to be uploaded in base64 encoding
+        }),
+      },
+    );
+    const blobResponse = await blobRes.json();
+  
+    // Step 4: Create a new tree with the blob you just created
+    const treeRes = await fetch(
       'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/trees',
       {
         method: 'POST',
@@ -122,17 +143,19 @@ export class AppService {
           base_tree: response2.tree.sha,
           tree: [
             {
-              path: file.originalname,
-              mode: '100755',
+              path: file.originalname,  // Use the original file name
+              mode: '100644',           // Regular file mode
               type: 'blob',
-              content: file.buffer.toString('base64'),
+              sha: blobResponse.sha,    // Reference the blob you just created
             },
           ],
         }),
       },
     );
-    const response3 = await res3.json();
-    const res4 = await fetch(
+    const treeResponse = await treeRes.json();
+  
+    // Step 5: Create a new commit pointing to the new tree
+    const commitRes = await fetch(
       'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/commits',
       {
         method: 'POST',
@@ -141,13 +164,15 @@ export class AppService {
           Authorization: req.headers.authorization,
         },
         body: JSON.stringify({
-          parents: [response.object.sha],
-          tree: response3.sha,
-          message: 'Updated',
+          message: 'Upload image file', // Commit message
+          parents: [response.object.sha], // Reference to the parent commit
+          tree: treeResponse.sha,         // The new tree SHA
         }),
       },
     );
-    const response4 = await res4.json();
+    const commitResponse = await commitRes.json();
+  
+    // Step 6: Update the reference of the 'main' branch to point to the new commit
     await fetch(
       'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/refs/heads/main',
       {
@@ -157,15 +182,15 @@ export class AppService {
           Authorization: req.headers.authorization,
         },
         body: JSON.stringify({
-          sha: response4.sha,
+          sha: commitResponse.sha,
         }),
       },
     );
-    return 'Checked your repositories';
+  
+    return 'File uploaded successfully to your repository';
   }
   async convertFile(data: any) {
     const fileBuffer = Buffer.from(data.base64, 'base64');
-    console.log(fileBuffer);
     const outputFilePath = path.join(__dirname, '../upload', '1234.png');
     await fs.promises.writeFile(outputFilePath, fileBuffer);
     return 'Ok';
@@ -177,3 +202,4 @@ export class AppService {
 // 0d9a6385fb66d768efe7fa2ac5db45ca845b0295
 // fa3d9b62ddb3febc3ccbcec8db60776ec2c28c1b
 // 09651fa0bafcaddcf1d01391706af31d83a3a5f1
+// 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
