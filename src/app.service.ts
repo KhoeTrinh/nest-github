@@ -17,6 +17,7 @@ export class AppService {
       },
     );
     const response = await res.json();
+    console.log(response);
     const res2 = await fetch(
       `https://api.github.com/repos/Khoa-Storage/Image-Storage/git/commits/${response.object.sha}`,
       {
@@ -109,7 +110,6 @@ export class AppService {
       },
     );
     const response2 = await res2.json();
-    console.log(response2);
     const res3 = await fetch(
       'https://api.github.com/repos/Khoa-Storage/Image-Storage/git/trees',
       {
