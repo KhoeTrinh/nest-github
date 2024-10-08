@@ -1,17 +1,38 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
-
   @Get('/')
-  getHello(@Req() req: Request) {
-    return this.appService.getHello(req);
+  GetFiles(@Req() req: Request) {
+    return this.appService.getFiles(req)
   }
+
+  @Get('/:id')
+  GetFile(@Req() req: Request, @Param('id') id: string) {
+    return this.appService.getFile(req, id)
+  }
+
   @Post('/')
-  createHello(@Body() data: any) {
-    return this.appService.createHello(data)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadFile(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
+    return this.appService.uploadFile(req, file);
+  }
+
+  @Post('/convert')
+  convertFile(@Body() data: any) {
+    return this.appService.convertFile(data);
   }
 }
